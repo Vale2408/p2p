@@ -62,7 +62,6 @@
 
                     document.write(toString(fileData.file.data))
 
-                    // Invia il file al server tramite Socket.IO
                    socket.emit('send-file', fileData);
                 };
 
