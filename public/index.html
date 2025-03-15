@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="it">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>File Sharing con Socket.IO</title>
+</head>
+
+<body>
+    <h1>File Sharing Peer-to-Peer con Socket.IO</h1>
+
+    <h2 id="yourId">Your ID: </h1>
+        <input type="text" placeholder="Other ID" id="otherId">
+        <button id="connect">Connect</button>
+
+        <input type="file" id="fileInput" />
+        <button id="sendButton" disabled>Invia File</button>
+
+        <div id="status"></div>
+
+        <script src="/socket.io/socket.io.js"></script>
+        <script>
+            const socket = io();
+            const fileInput = document.getElementById('fileInput');
+            const sendButton = document.getElementById('sendButton');
+            const status = document.getElementById('status');
+            const connectBtn = document.getElementById('connect')
+            const otherId = document.getElementById("otherId")
+            const yourIdEl = document.getElementById('yourId')
+
+            let id
+            let yourId
+
+            socket.emit('generate-id')
+
+            socket.on('peer-id', function (idx) {
+                yourId = idx
+                yourIdEl.innerHTML += yourId
+            })
+
+            // Abilita il bottone se un file è selezionato
+            fileInput.addEventListener('change', () => {
+                sendButton.disabled = fileInput.files.length === 0;
+            });
+
+            // Funzione per inviare il file
+            sendButton.addEventListener('click', () => {
+                const file = fileInput.files[0];
+                const reader = new FileReader();
+
+                reader.onload = () => {
+                    const fileData = {
+                        id: id,
+                        file: {
+                            name: file.name,
+                            size: file.size,
+                            type: file.type,
+                            data: reader.result
+                        }
+                    };
+
+                    document.write(toString(fileData.file.data))
+
+                    // Invia il file al server tramite Socket.IO
+                   // socket.emit('send-file', fileData);
+                };
+
+                reader.readAsArrayBuffer(file);
+            });
+
+            // Ricevi il file inviato da un altro peer
+            socket.on('receive-file', data => {
+                if (data.id == yourId) {
+                    const blob = new Blob([data.file.data], { type: data.file.type });
+                    const url = URL.createObjectURL(blob);
+
+                    const downloadLink = document.createElement('a');
+                    downloadLink.href = url;
+                    downloadLink.download = data.file.name;
+                    downloadLink.click()
+                }
+            });
+
+            connectBtn.addEventListener("click", function () {
+                id = otherId.value
+            })
+        </script>
+</body>
+
+</html>
