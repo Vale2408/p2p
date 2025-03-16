@@ -1,49 +1,35 @@
-const express = require('express');
-const http = require('http');
-const socketIo = require('socket.io');
-const path = require('path');
-const {v4: uuidv4} = require('uuid')
+const express = require('express')
+const path = require('path')
 
-// Crea un'app Express
-const app = express();
+const app = express()
+const port = 8080
+const server = require('http').createServer(app)
 
-// Crea un server HTTP usando l'app Express
-const server = http.createServer(app);
+const io = require('socket.io')(server)
 
-// Inizializza Socket.IO sul server
-const io = socketIo(server);
+app.use(express.static(path.join(__dirname + '/public')))
 
-// Serve i file statici dalla cartella "public"
-app.use(express.static(path.join(__dirname, 'public')));
+io.on("connection", function(socket) {
+    socket.on("sender-join", function(data) {
+        socket.join(data.uid)
+    })
 
-// Configura la route principale per la pagina del client
-app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
+    socket.on("receiver-join", function(data) {
+        socket.join(data.uid)
+        socket.in(data.sender_uid).emit("init", data.uid)
+    })
 
-// Gestisci la connessione di un nuovo socket
-io.on('connection', (socket) => {
-  console.log('Un nuovo peer si è connesso:', socket.id);
+    socket.on("file-meta", function(data) {
+        socket.in(data.uid).emit("fs-meta", data.metadata)
+    })
 
-  // Gestisci l'invio del file
-  socket.on('send-file', (data) => {
-    console.log('File ricevuto, invio a tutti gli altri peer...');
-    // Invia il file a tutti i peer connessi
-    socket.broadcast.emit('receive-file', data);
-  });
+    socket.on("fs-start", function(data) {
+        socket.in(data.uid).emit("fs-share", {})
+    })
 
-  socket.on('generate-id', function() {
-    const id = uuidv4()
-    socket.emit('peer-id', id)
-  })
+    socket.on("file-raw", function(data) {
+        socket.in(data.uid).emit("fs-share", data.buffer)
+    })
+})
 
-  // Disconnessione
-  socket.on('disconnect', () => {
-    console.log('Un peer si è disconnesso:', socket.id);
-  });
-});
-
-// Avvia il server sulla porta 3000
-server.listen(3000, () => {
-  console.log('Server in ascolto su http://localhost:3000');
-});
+server.listen(port)
